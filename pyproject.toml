@@ -18,6 +18,9 @@ requires-python = ">= 3.8"
 [project.urls]
 Home = "https://github.com/worgue/django-scribe-store"
 
+[tool.flit.module]
+name = "scribe_store"
+
 [tool.rye]
 dev-dependencies = [
     "responses~=0.23.1",
