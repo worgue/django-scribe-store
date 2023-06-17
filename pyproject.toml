@@ -1,0 +1,25 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "scribe_store"
+authors = [{name = "Masaaki Yasui", email = "yasu@worgue.com"}]
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+dependencies = [
+    "Django",
+    "requests",
+    "django-click",
+]
+requires-python = ">= 3.11"
+
+[project.urls]
+Home = "https://github.com/worgue/django-scribe-store"
+
+[tool.rye]
+dev-dependencies = [
+    "responses~=0.23.1",
+    "freezegun~=1.2.2",
+]

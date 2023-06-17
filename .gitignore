@@ -1,0 +1,17 @@
+# python
+__pycache__/
+
+# vscode
+.vscode/
+
+# rye
+.python-version
+requirements.lock
+requirements-dev.lock
+
+# mac
+.DS_Store
+
+# test
+untracked-media/
+database.db
