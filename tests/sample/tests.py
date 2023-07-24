@@ -128,7 +128,7 @@ class ScribeTest(TestCase):
 
     @override_settings(SCRIBE_STORE_STRIP_VALUE=False)
     @responses.activate
-    def test_question_spaces(self):
+    def test_question_spaces_strip_value(self):
         self.scribe_sample_question("spaces")
         self.assertEqual(
             Question.objects.get().question_text,
