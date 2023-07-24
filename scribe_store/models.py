@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import csv
 import json
 import secrets
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 import requests
 from django.conf import settings
@@ -15,6 +18,9 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from . import RowStatus
+
+if TYPE_CHECKING:
+    from django.db.models import Manager
 
 
 class BadHttpStatusException(Exception):
@@ -35,9 +41,8 @@ class ScribeSource(models.Model):
         max_length=100,
         help_text="You can use strftime format. ex) https://example.com/%Y/%m/%d/",
     )
-    target = models.ForeignKey(
-        ContentType, blank=True, null=True, on_delete=models.SET_NULL
-    )
+    target = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    store_set: Manager["ScribeStore"]
 
     def __str__(self):
         return self.slug
@@ -79,6 +84,7 @@ class ScribeStore(models.Model):
     status = models.CharField(max_length=1, choices=Status.choices, default="D")
     downloaded_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    row_set: Manager["ScribeRow"]
 
     def __str__(self):
         return self.slug
@@ -93,7 +99,10 @@ class ScribeStore(models.Model):
 
     @cached_property
     def ModelClass(self):
-        return self.source.target.model_class()
+        ModelClass = self.source.target.model_class()
+        if ModelClass is None:
+            raise Exception("ModelClass is None")
+        return ModelClass
 
     @cached_property
     def header(self):
@@ -141,8 +150,9 @@ class ScribeStore(models.Model):
             return
         data = dict(zip(self.row_fields, row))
 
-        if hasattr(self.ModelClass.objects, "scribe_dict"):
-            res = self.ModelClass.objects.scribe_dict(data)
+        scribe_dict = getattr(self.ModelClass.objects, "scribe_dict", None)
+        if scribe_dict:
+            res = scribe_dict(data)
             if res is None:
                 ins = None
                 status = RowStatus.IGNORED
@@ -164,6 +174,10 @@ class ScribeStore(models.Model):
                         "status should be RowStatus values. One of %s."
                         % (status, RowStatus.values)
                     )
+            else:
+                raise ScribeException(
+                    "scribe_dict should return: None, object or 2 length tuple."
+                )
         else:
             ins = self.ModelClass.objects.create(**data)
             status = RowStatus.CREATED
@@ -198,7 +212,7 @@ class ScribeStore(models.Model):
     def delete_created(self):
         if self.status == self.Status.COMPLETED:
             for row in self.row_set.all():
-                if row.status == RowStatus.CREATED:
+                if row.status == RowStatus.CREATED and row.target:
                     row.target.delete()
                     row.status = RowStatus.DELETED
                     row.target = None
@@ -229,7 +243,7 @@ class ScribeRow(models.Model):
 
     @admin.display(ordering="object_id", description="target")
     def get_target_link(self):
-        if self.object_id is None:
+        if self.object_id is None or self.content_type is None:
             return None
         admin_url = reverse(
             "admin:%s_%s_change"
