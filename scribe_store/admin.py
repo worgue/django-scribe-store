@@ -1,14 +1,28 @@
+from typing import TYPE_CHECKING, Protocol
+
 from django.contrib import admin
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from scribe_store.models import ScribeRow
+from scribe_store.models import ScribeRow, ScribeSource, ScribeStore
 
-from . import models
+if TYPE_CHECKING:
+
+    class AdminProtocol(Protocol):
+        def get_list_display(self, request) -> list[str]:
+            ...
+
+        def get_readonly_fields(self, request, obj) -> tuple[str]:
+            ...
+
+else:
+
+    class AdminProtocol:
+        ...
 
 
-@admin.register(models.ScribeSource)
+@admin.register(ScribeSource)
 class ScribeSourceAdmin(admin.ModelAdmin):
     list_display = (
         "slug",
@@ -25,7 +39,7 @@ def delete_created(modeladmin, request, queryset):
         datastore.delete_created()
 
 
-@admin.register(models.ScribeStore)
+@admin.register(ScribeStore)
 class ScribeStoreAdmin(admin.ModelAdmin):
     list_display = (
         "slug",
@@ -40,7 +54,7 @@ class ScribeStoreAdmin(admin.ModelAdmin):
     actions = [delete_created]
 
 
-@admin.register(models.ScribeRow)
+@admin.register(ScribeRow)
 class ScribeRowAdmin(admin.ModelAdmin):
     list_display = ("__str__", "object_index", "status", "get_target_link")
     readonly_fields = ["get_target_link", "get_data_formatted"]
@@ -48,11 +62,12 @@ class ScribeRowAdmin(admin.ModelAdmin):
     def get_fields(self, request, obj):
         fields = super().get_fields(request, obj)
         if fields[-2:] == ["get_target_link", "get_data_formatted"]:
+            fields = list(fields)
             return fields[-2:] + fields[:-2]
         return fields
 
 
-class ScribeAdminMixin:
+class ScribeAdminMixin(AdminProtocol):
     def get_scribe_row_admin_link(self, row):
         admin_url = reverse(
             "admin:%s_%s_change" % ("scribe_store", "scriberow"),

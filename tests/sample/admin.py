@@ -11,5 +11,5 @@ class QuestionAdmin(ScribeAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(News)
-class NewsAdmin(admin.ModelAdmin):
+class NewsAdmin(ScribeAdminMixin, admin.ModelAdmin):
     list_display = ["slug", "news_text", "pub_date"]

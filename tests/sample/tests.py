@@ -6,6 +6,7 @@ from django.db.utils import IntegrityError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from freezegun import freeze_time
+from sample.factories import ScribeStoreFactory
 from sample.models import News, NewsB, NewsC, Question
 
 from scribe_store.models import (
@@ -14,6 +15,37 @@ from scribe_store.models import (
     ScribeSource,
     ScribeStore,
 )
+
+
+class FactoryTest(TestCase):
+    def test_factory_source(self):
+        self.assertEqual(ScribeSource.objects.count(), 0)
+        self.assertEqual(ScribeStore.objects.count(), 0)
+        store_news = ScribeStoreFactory.create(
+            source__target=ContentType.objects.get_for_model(News),
+            file__from_path="sample/data/news/simple.csv",
+        )
+        store_question = ScribeStoreFactory.create(
+            source__target=ContentType.objects.get_for_model(Question),
+            file__from_path="sample/data/question/simple.csv",
+        )
+        self.assertEqual(ScribeStore.objects.count(), 2)
+        self.assertEqual(ScribeSource.objects.count(), 2)
+        self.assertEqual(News.objects.count(), 0)
+        self.assertEqual(Question.objects.count(), 0)
+        store_news.load_csv()
+        store_question.load_csv()
+        self.assertEqual(News.objects.count(), 3)
+        self.assertEqual(Question.objects.count(), 3)
+        self.assertEqual(store_news.related().count(), 3)
+
+
+class CommandTest(TestCase):
+    def test_load_test_data(self):
+        self.assertEqual(Question.objects.count(), 0)
+        call_command("load_test_data")
+        self.assertEqual(News.objects.count(), 3)
+        self.assertEqual(Question.objects.count(), 3)
 
 
 class ScribeTest(TestCase):
@@ -43,7 +75,7 @@ class ScribeTest(TestCase):
             )
             source.scribe()
 
-    def add_rewponses(self, category, key):
+    def add_responses(self, category, key):
         with open("sample/data/%s/%s.csv" % (category, key), "rb") as fp:
             responses.add(
                 responses.GET,
@@ -57,7 +89,7 @@ class ScribeTest(TestCase):
         if target_name is None:
             target_name = category
         ct = ContentType.objects.get(model=target_name)
-        self.add_rewponses(category, key)
+        self.add_responses(category, key)
         source = ScribeSource.objects.create(
             slug=key, url="https://example.com/data", target=ct
         )
@@ -196,7 +228,7 @@ class ScribeTest(TestCase):
 
     @responses.activate
     def test_command_scribe_new(self):
-        self.add_rewponses("question", "simple")
+        self.add_responses("question", "simple")
         call_command(
             "scribe_new", "simple-question", "https://example.com/data", "question"
         )
@@ -206,7 +238,7 @@ class ScribeTest(TestCase):
 
     @responses.activate
     def test_command_scribe_new_entry_only(self):
-        self.add_rewponses("question", "simple")
+        self.add_responses("question", "simple")
         call_command(
             "scribe_new",
             "simple-question",
@@ -220,7 +252,7 @@ class ScribeTest(TestCase):
 
     @responses.activate
     def test_command_scribe(self):
-        self.add_rewponses("question", "simple")
+        self.add_responses("question", "simple")
         call_command(
             "scribe_new",
             "simple-question",
@@ -235,7 +267,7 @@ class ScribeTest(TestCase):
 
     @responses.activate
     def test_command_scribe_options(self):
-        self.add_rewponses("question", "simple")
+        self.add_responses("question", "simple")
         call_command(
             "scribe_new",
             "simple-question",
